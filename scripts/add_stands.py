@@ -23,7 +23,7 @@ from pyproj import Transformer
 from shapely.geometry import mapping, shape
 from shapely.ops import unary_union
 
-SOURCE = 'Stand stand map (Geomaster export 22 Oct 2026); stand register 22 Oct 2026'
+SOURCE = 'Stand Geomaster stand boundaries (exported 22 Oct 2026); stand register 22 Oct 2026'
 TO_WGS84 = Transformer.from_crs(2193, 4326, always_xy=True).transform
 
 
@@ -79,7 +79,8 @@ def build(args, layers):
 
     feats = []
     for name, geoms in sorted(parts.items()):
-        g = shapely.transform(unary_union(geoms).buffer(0), lambda xy: list(zip(*TO_WGS84(*xy.T))))
+        nztm = unary_union(geoms).buffer(0)
+        g = shapely.transform(nztm, lambda xy: list(zip(*TO_WGS84(*xy.T))))
         p, reg = attrs[name], listing.get(name, {})
         a = assess.get(name, {})
         year = int(reg.get('YOE') or p.get('EstabYear') or 0) or None
@@ -93,6 +94,7 @@ def build(args, layers):
             'year': year,
             'species': reg.get('SpeciesName') or p.get('Species'),
             'area_ha': round(area, 2),
+            'map_ha': round(nztm.area / 1e4, 1),
             'esqc': survey(a.get('ESQC')),
             'blanking': survey(a.get('BLNK')),
             'block': hits[0] if hits else None,
