@@ -80,7 +80,8 @@ def build(args, layers):
     feats = []
     for name, geoms in sorted(parts.items()):
         nztm = unary_union(geoms).buffer(0)
-        g = shapely.transform(nztm, lambda xy: list(zip(*TO_WGS84(*xy.T))))
+        g = shapely.transform(nztm.simplify(args.simplify, preserve_topology=True),
+                              lambda xy: list(zip(*TO_WGS84(*xy.T))))
         p, reg = attrs[name], listing.get(name, {})
         a = assess.get(name, {})
         year = int(reg.get('YOE') or p.get('EstabYear') or 0) or None
@@ -103,7 +104,7 @@ def build(args, layers):
         if blocks and not hits:
             props['status'] = 'Outside the sale titles (forestry right only / excluded land)'
         feats.append({'type': 'Feature', 'properties': props,
-                      'geometry': json.loads(json.dumps(mapping(g.simplify(1e-6))),
+                      'geometry': json.loads(json.dumps(mapping(g)),
                                              parse_float=lambda x: round(float(x), 6))})
     missing = sorted(set(listing) - set(parts))
     return {'type': 'FeatureCollection', 'features': feats}, missing
@@ -116,6 +117,7 @@ def main():
     ap.add_argument('--assess', required=True)
     ap.add_argument('--layers', default='assets/layers.js')
     ap.add_argument('--geojson')
+    ap.add_argument('--simplify', type=float, default=0.5, help='outline tolerance in metres')
     args = ap.parse_args()
 
     raw = open(args.layers, encoding='utf-8').read()
