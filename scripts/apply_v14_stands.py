@@ -33,19 +33,32 @@ AGE_CLASSES = [
     {'block': 'Eastern Block', 'year': 2026, 'ha': 15.63, 'species': 'P. radiata (2026 stand)'},
     {'block': 'Puau Road', 'year': 2024, 'ha': 48.44, 'species': 'P. radiata'},
     {'block': 'Staghaven', 'year': 2024, 'ha': 82.7, 'species': 'P. radiata (plus older exotic)'},
+    {'block': 'Soldiers Road (crop only)', 'year': 2023, 'ha': 88.4, 'species': 'P. radiata'},
+    {'block': 'Soldiers Road (crop only)', 'year': 2026, 'ha': 21.12, 'species': 'P. radiata (2026 stand)'},
 ]
 for r in AGE_CLASSES:
     r['age'] = 2026 - r['year']
 
 AGE_NOTE = ("Stands, establishment years and areas from Stand's stand register and Geomaster stand map "
-            "(22 Oct 2026) – the 35 stands inside the sale titles, 2,357.9 ha. 2026 rows are new stands "
-            "created for this season's replanting. Staghaven also carries ~49 ha of older exotic forest "
-            "(including 2011 ETS stands) that is not in the register. Soldiers Road (SLDR-1-01, 1-02; 109.5 ha) and Kowhata "
-            "(KWTA-1-01, 74.5 ha, title WN22B/23) are in the register but outside the sale titles. The "
-            "initial planted area above is Stand's April 2026 survey figure. Stand boundaries are on the map "
-            "under Forest & carbon.")
+            "(22 Oct 2026): 37 stands, 2,467.4 ha – 2,357.9 ha on the sale titles plus the Soldiers Road crop "
+            "(109.5 ha), which is sold under NFL's forestry right without the land (Land & Bee's Limited). "
+            "2026 rows are new stands created for this season's replanting. Staghaven also carries ~49 ha of "
+            "older exotic forest (including 2011 ETS stands) that is not in the register. The register also "
+            "lists Kowhata (KWTA-1-01, 74.5 ha, 2024) on Wood Country Limited land (WN22B/23, WN53B/171); it "
+            "is not in the agency agreements and is excluded here pending confirmation. The initial planted "
+            "area above is Stand's April 2026 survey figure. Stand boundaries are on the map under Forest & carbon.")
 
-SUMMARY_ROW = {'k': REGISTER, 'v': '35 stands, 2,358 ha within the sale titles (established 2022–2026)'}
+SUMMARY_ROW = {'k': REGISTER,
+               'v': "37 stands, 2,467 ha (2,358 ha on the sale titles + 109.5 ha Soldiers Road crop); established 2022–2026"}
+
+# Stand labels in data/stand_nirvana.geojson for the register forests off the sale titles.
+STAND_STATUS = {
+    'SLDR': ('Soldiers Road (crop only)',
+             "Crop in the sale under NFL's forestry right; the land (Land & Bee's Limited) is not included"),
+    'KWTA': (None,
+             'Outside the sale titles – on Wood Country Limited land (WN22B/23, WN53B/171); '
+             'whether this crop is in the sale is to be confirmed'),
+}
 SOURCE_ADD = 'Stand stand register and stand map (22 Oct 2026)'
 
 POPUP_OLD = "        p.status ? kv('Status', p.status) : '',\n"
@@ -57,7 +70,10 @@ def update_crop(crop):
     crop['age_classes'] = AGE_CLASSES
     crop['age_note'] = AGE_NOTE
     summary = crop.setdefault('summary', [])
-    if not any(r.get('k') == REGISTER for r in summary):
+    rows = [i for i, r in enumerate(summary) if r.get('k') == REGISTER]
+    if rows:
+        summary[rows[0]] = SUMMARY_ROW
+    else:
         summary.insert(1, SUMMARY_ROW)
     if SOURCE_ADD not in crop.get('source', ''):
         crop['source'] = '; '.join(filter(None, [crop.get('source'), SOURCE_ADD]))
@@ -84,8 +100,16 @@ def main():
             f.write(tpl.replace(old, new))
         print('template.html: stocking rows added to the stand popup')
 
-    if not (ROOT / 'data' / 'stand_nirvana.geojson').exists():
-        print('WARNING: data/stand_nirvana.geojson is missing - copy it in before building')
+    stands_path = ROOT / 'data' / 'stand_nirvana.geojson'
+    if not stands_path.exists():
+        sys.exit('data/stand_nirvana.geojson is missing - copy it in, then run this again')
+    stands = json.loads(stands_path.read_text(encoding='utf-8'))
+    for f in stands['features']:
+        p = f['properties']
+        if p.get('stand', '')[:4] in STAND_STATUS:
+            p['block'], p['status'] = STAND_STATUS[p['stand'][:4]]
+    stands_path.write_text(json.dumps(stands, ensure_ascii=False), encoding='utf-8')
+    print('stand_nirvana.geojson: Soldiers Road (crop only) and Kowhata labels set')
 
 
 if __name__ == '__main__':

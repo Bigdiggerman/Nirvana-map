@@ -24,6 +24,16 @@ from shapely.geometry import mapping, shape
 from shapely.ops import unary_union
 
 SOURCE = 'Stand Geomaster stand boundaries (exported 22 Oct 2026); stand register 22 Oct 2026'
+
+# Forests in the register whose land is not in the sale titles: block label and
+# popup status. A status containing "outside" gets the red dashed outline.
+OFF_TITLE = {
+    'SLDR': ('Soldiers Road (crop only)',
+             "Crop in the sale under NFL's forestry right; the land (Land & Bee's Limited) is not included"),
+    'KWTA': (None,
+             'Outside the sale titles – on Wood Country Limited land (WN22B/23, WN53B/171); '
+             'whether this crop is in the sale is to be confirmed'),
+}
 TO_WGS84 = Transformer.from_crs(2193, 4326, always_xy=True).transform
 
 
@@ -102,7 +112,8 @@ def build(args, layers):
             'source': SOURCE,
         }
         if blocks and not hits:
-            props['status'] = 'Outside the sale titles (forestry right only / excluded land)'
+            props['block'], props['status'] = OFF_TITLE.get(
+                name[:4], (None, 'Outside the sale titles'))
         feats.append({'type': 'Feature', 'properties': props,
                       'geometry': json.loads(json.dumps(mapping(g)),
                                              parse_float=lambda x: round(float(x), 6))})
@@ -134,7 +145,7 @@ def main():
 
     out = [p['properties'] for p in fc['features']]
     print(f"{len(out)} stands, {sum(p['area_ha'] for p in out):,.1f} ha "
-          f"({sum(1 for p in out if p.get('status'))} outside sale titles)")
+          f"({sum(1 for p in out if 'outside' in (p.get('status') or '').lower())} outside the sale)")
     if missing:
         print('In the register but not mapped:', ', '.join(missing))
 
